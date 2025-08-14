@@ -1,0 +1,287 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>WEH Relationship Network</title>
+  <style>
+    body { font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial; margin: 0; display: flex; height: 100vh; }
+    #panel { width: 280px; border-right: 1px solid #eee; padding: 16px; box-sizing: border-box; overflow: auto; }
+    #viz { flex: 1; }
+    h2 { font-size: 16px; margin: 0 0 12px; }
+    .stage { margin: 6px 0; }
+    .legend { margin-top: 16px; font-size: 12px; color: #555; }
+    .tip {
+      position: absolute; pointer-events: none; background: rgba(0,0,0,0.8); color: #fff;
+      padding: 8px 10px; border-radius: 6px; font-size: 12px; line-height: 1.35; display: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="panel">
+    <h2>Filters</h2>
+    <div id="stages"></div>
+    <div class="legend">
+      Node size = total weighted strength<br/>
+      Edge thickness/color = strength (light gray → dark blue)<br/>
+      Center = WEH Team
+    </div>
+  </div>
+  <div id="viz"></div>
+  <div class="tip" id="tip"></div>
+
+  <script src="https://unpkg.com/d3@7"></script>
+  <script>
+    // Paste or replace this data block with rows from your sheet if needed
+    const rows = [
+      {Fund:"021 Capital",Title:"Principal",Strength:"Medium",Stage:"Seed/A"},
+      {Fund:"100x VC",Title:"Associate",Strength:"Low",Stage:"Pre-Seed/Seed"},
+      {Fund:"2 am VC",Title:"Associate",Strength:"Low",Stage:"Pre-Seed/Seed"},
+      {Fund:"3one4",Title:"Partner",Strength:"Low",Stage:"Seed/A"},
+      {Fund:"3one4",Title:"Senior Analyst",Strength:"Low",Stage:"Seed/A"},
+      {Fund:"3one4",Title:"Sr. Analyst",Strength:"Low",Stage:"Seed/A"},
+      {Fund:"3one4",Title:"VP",Strength:"Medium",Stage:"Seed/A"},
+      {Fund:"8X Ventures",Title:"Associate",Strength:"Low",Stage:"Pre-Seed/Seed"},
+      {Fund:"9 Unicorns",Title:"Investment Team",Strength:"Low",Stage:"Pre-Seed/Seed"},
+      {Fund:"9 Unicorns",Title:"Sr. Analyst",Strength:"Low",Stage:"Pre-Seed/Seed"},
+      {Fund:"A91",Title:"Portfolio",Strength:"High",Stage:"Growth"},
+      {Fund:"Aavishkar Capital",Title:"Associate",Strength:"Low",Stage:"Seed/A"},
+      {Fund:"Accel",Title:"Principal",Strength:"Low",Stage:"A/B"},
+      {Fund:"Accion",Title:"Principal",Strength:"High",Stage:"A/B"},
+      {Fund:"Accion",Title:"Senior Manager, Portfolio",Strength:"Low",Stage:"A/B"},
+      {Fund:"AfricInvest",Title:"VP/ Principal",Strength:"Medium",Stage:"Growth"},
+      {Fund:"All in Capital",Title:"Founding Partner",Strength:"High",Stage:"Pre-Seed/Seed"},
+      {Fund:"All in Capital",Title:"Analyst",Strength:"High",Stage:"Pre-Seed/Seed"},
+      {Fund:"All in Capital",Title:"Associate",Strength:"Low",Stage:"Pre-Seed/Seed"},
+      {Fund:"Amicus Capital",Title:"Partner",Strength:"Medium",Stage:"Growth"},
+      {Fund:"Angels",Title:"Angel",Strength:"Medium",Stage:"Angel"},
+      {Fund:"Anicut Capital",Title:"AVP",Strength:"High",Stage:"A/B"},
+      {Fund:"Anupam Mittal Fund",Title:"Principal",Strength:"Low",Stage:"Angel"},
+      {Fund:"Arali",Title:"VP",Strength:"Low",Stage:"Seed/A"},
+      {Fund:"Arali",Title:"Associate",Strength:"Low",Stage:"Seed/A"},
+      {Fund:"Arkam Ventures",Title:"Associate",Strength:"High",Stage:"A/B"},
+      {Fund:"Arkam Ventures",Title:"Partner",Strength:"Medium",Stage:"A/B"},
+      {Fund:"Arkam Ventures",Title:"Investment Professional",Strength:"Low",Stage:"A/B"},
+      {Fund:"Asha Ventures",Title:"Analyst",Strength:"Medium",Stage:"Seed/A"},
+      {Fund:"Asha Ventures",Title:"Partner",Strength:"Medium",Stage:"Seed/A"},
+      {Fund:"Athera",Title:"VP",Strength:"Medium",Stage:"A/B"},
+      {Fund:"Beams Fintech Fund",Title:"Partner",Strength:"Medium",Stage:"A/B"},
+      {Fund:"Beenext",Title:"Partner",Strength:"Low",Stage:"Seed/A"},
+      {Fund:"Beenext",Title:"Prinicpal",Strength:"Medium",Stage:"Seed/A"},
+      {Fund:"Beenext",Title:"Associate",Strength:"Low",Stage:"Seed/A"},
+      {Fund:"Bertelsmann India",Title:"Analyst",Strength:"Medium",Stage:"A/B"},
+      {Fund:"Bertelsmann India",Title:"Senior Associate",Strength:"Low",Stage:"A/B"},
+      {Fund:"Blume Ventures",Title:"Partner",Strength:"Medium",Stage:"Seed/A"},
+      {Fund:"Blume Ventures",Title:"Partner",Strength:"Medium",Stage:"Seed/A"},
+      {Fund:"Blume Ventures",Title:"Associate",Strength:"Low",Stage:"Seed/A"},
+      {Fund:"Blume Ventures",Title:"Partner",Strength:"Medium",Stage:"Seed/A"},
+      {Fund:"Blume Ventures",Title:"Senior Analyst",Strength:"Low",Stage:"Seed/A"},
+      {Fund:"Brigade Reap",Title:"Technology Mentor",Strength:"Low",Stage:"Accelerator"},
+      {Fund:"Brigade Reap",Title:"Joint Managing Director",Strength:"Medium",Stage:"Accelerator"},
+      {Fund:"Capria",Title:"Associate",Strength:"Medium",Stage:"A/B"},
+      {Fund:"Chimera",Title:"Partner",Strength:"Low",Stage:"Growth"},
+      {Fund:"Chiratae",Title:"Managing Partner",Strength:"Medium",Stage:"A/B"},
+      {Fund:"Client Associates",Title:"Associate",Strength:"Medium",Stage:"Wealth/FO"},
+      {Fund:"Colossa Ventures",Title:"Partner/Co-founder",Strength:"Medium",Stage:"Pre-Seed/Seed"},
+      {Fund:"Colossa Ventures",Title:"Research Associate",Strength:"Low",Stage:"Pre-Seed/Seed"},
+      {Fund:"DR Ventures",Title:"VC associate",Strength:"Low",Stage:"Pre-Seed/Seed"},
+      {Fund:"DST Global",Title:"Associate",Strength:"Low",Stage:"Growth"},
+      {Fund:"Eight Roads",Title:"Investment Professional",Strength:"Low",Stage:"Growth"},
+      {Fund:"Elev8",Title:"Partner",Strength:"Medium",Stage:"A/B"},
+      {Fund:"Elevation",Title:"Managing Partner",Strength:"Medium",Stage:"A/B"},
+      {Fund:"Elevation",Title:"VP",Strength:"Low",Stage:"A/B"},
+      {Fund:"Equanimity",Title:"Managing Partner",Strength:"Medium",Stage:"A/B"},
+      {Fund:"Equanimity",Title:"Principal",Strength:"Medium",Stage:"A/B"},
+      {Fund:"Equanimity",Title:"Associate",Strength:"Low",Stage:"A/B"},
+      {Fund:"Eximius",Title:"Partner",Strength:"Medium",Stage:"Pre-Seed/Seed"},
+      {Fund:"Eximius",Title:"Analyst",Strength:"Low",Stage:"Pre-Seed/Seed"},
+      {Fund:"Faad Network",Title:"Principal",Strength:"Low",Stage:"Pre-Seed/Seed"},
+      {Fund:"Filter Capital",Title:"Principal",Strength:"Medium",Stage:"A/B"},
+      {Fund:"Fireside Ventures",Title:"Partner",Strength:"Low",Stage:"A/B"},
+      {Fund:"Fireside Ventures",Title:"Prinicpal",Strength:"Low",Stage:"A/B"},
+      {Fund:"Fireside Ventures",Title:"Senior Associate",Strength:"Low",Stage:"A/B"},
+      {Fund:"Fireside Ventures",Title:"Senior Associate",Strength:"Low",Stage:"A/B"},
+      {Fund:"Force Ventures",Title:"Partner",Strength:"Medium",Stage:"Pre-Seed/Seed"},
+      {Fund:"Fundamentum",Title:"Senior Associate",Strength:"Low",Stage:"Growth"},
+      {Fund:"Fundamentum",Title:"Principal",Strength:"Medium",Stage:"Growth"},
+      {Fund:"Fundamentum",Title:"VP",Strength:"Medium",Stage:"Growth"},
+      {Fund:"Gemba",Title:"Partner",Strength:"Low",Stage:"Pre-Seed/Seed"},
+      {Fund:"Gemba",Title:"Principal",Strength:"Low",Stage:"Pre-Seed/Seed"},
+      {Fund:"Gemba",Title:"Analyst",Strength:"Low",Stage:"Pre-Seed/Seed"},
+      {Fund:"GIC",Title:"Investor",Strength:"Medium",Stage:"Growth"},
+      {Fund:"Golden Sparrow",Title:"Associate",Strength:"Low",Stage:"Pre-Seed/Seed"},
+      {Fund:"GrowthCap",Title:"Associate",Strength:"Low",Stage:"Pre-Seed/Seed"},
+      {Fund:"GrowthCap",Title:"Analyst",Strength:"Low",Stage:"Pre-Seed/Seed"},
+      {Fund:"GrowthCap",Title:"Associate",Strength:"Low",Stage:"Pre-Seed/Seed"},
+      {Fund:"Gruhas",Title:"Investment team",Strength:"Low",Stage:"A/B"},
+      {Fund:"Hiro Capital",Title:"Principal",Strength:"Low",Stage:"Growth"},
+      {Fund:"HIVEN SG",Title:"Investment Director",Strength:"High",Stage:"Growth"},
+      {Fund:"Huddle Ventures",Title:"Associate",Strength:"Low",Stage:"Pre-Seed/Seed"},
+      {Fund:"ICICI Ventures",Title:"Partner",Strength:"Low",Stage:"Growth"},
+      {Fund:"IIM A Ventures",Title:"Portfolio Manager",Strength:"Low",Stage:"Pre-Seed/Seed"},
+      {Fund:"Incubate Fund",Title:"Partner",Strength:"Medium",Stage:"Seed/A"},
+      {Fund:"India Quotient",Title:"Partner",Strength:"Medium",Stage:"Seed/A"},
+      {Fund:"India Quotient",Title:"Partner",Strength:"Medium",Stage:"Seed/A"},
+      {Fund:"Inflection Point Ventures",Title:"Manager",Strength:"Medium",Stage:"Angel/Network"},
+      {Fund:"Info Edge",Title:"Founder",Strength:"Low",Stage:"CVC"},
+      {Fund:"Info Edge",Title:"Associate",Strength:"Low",Stage:"CVC"},
+      {Fund:"Info Edge",Title:"Analyst",Strength:"Low",Stage:"CVC"},
+      {Fund:"Info Edge/ Capital 2B",Title:"Partner",Strength:"Low",Stage:"CVC"},
+      {Fund:"Inventus Capital",Title:"Partner",Strength:"Medium",Stage:"A/B"},
+      {Fund:"Inventus Capital",Title:"Partner",Strength:"Medium",Stage:"A/B"},
+      {Fund:"Inventus Capital",Title:"Partner",Strength:"Medium",Stage:"A/B"},
+      {Fund:"Investissuers & Partenaires (France)",Title:"CIO/ CEO",Strength:"Medium",Stage:"Growth"},
+      {Fund:"Investissuers & Partenaires (France)",Title:"CIO/ CEO",Strength:"Medium",Stage:"Growth"},
+      {Fund:"Investissuers & Partenaires (Ivory Coast)",Title:"Investment Manager",Strength:"Medium",Stage:"Growth"},
+    ];
+
+    const base = { High: 3, Medium: 2, Low: 1 };
+    function mult(title) {
+      const t = (title || "").toLowerCase();
+      if (/(managing )?partner|founder|founding partner/.test(t)) return 1.5;
+      if (/vp|principal|investment director|avp/.test(t)) return 1.2;
+      if (/senior associate|associate|manager|portfolio|investor|investment professional|technology mentor|portfolio manager/.test(t)) return 1.0;
+      if (/sr\.? analyst|senior analyst|analyst|research associate/.test(t)) return 0.8;
+      return 1.0;
+    }
+
+    function aggregate(activeStages) {
+      const map = new Map(); // Fund -> {stage, total, strongest}
+      for (const r of rows) {
+        if (!activeStages.has(r.Stage)) continue;
+        const w = (base[r.Strength] || 1) * mult(r.Title);
+        if (!map.has(r.Fund)) map.set(r.Fund, { stage: r.Stage, total: 0, strongest: { title: r.Title, strength: r.Strength, score: w }});
+        const e = map.get(r.Fund);
+        e.total += w;
+        if (w > e.strongest.score) e.strongest = { title: r.Title, strength: r.Strength, score: w };
+      }
+      return map;
+    }
+
+    const stagesAll = Array.from(new Set(rows.map(r => r.Stage))).sort();
+    const panel = d3.select("#stages");
+    const state = new Set(stagesAll);
+    panel.selectAll("label.stage")
+      .data(stagesAll)
+      .enter()
+      .append("label")
+      .attr("class","stage")
+      .html(d => `<input type="checkbox" checked data-stage="${d}"/> ${d}`)
+      .on("change", (event, d) => {
+        const cb = event.currentTarget.querySelector("input");
+        if (cb.checked) state.add(d); else state.delete(d);
+        update();
+      });
+
+    // Viz setup
+    const width = window.innerWidth - 280, height = window.innerHeight;
+    const svg = d3.select("#viz").append("svg").attr("width", width).attr("height", height);
+    const g = svg.append("g");
+    const linkG = g.append("g").attr("stroke-linecap","round");
+    const nodeG = g.append("g");
+    const tip = d3.select("#tip");
+
+    const color = d3.scaleLinear().domain([0.8, 2.0, 4.0, 7.0]).range(["#ccc","#9bb7e9","#4d79d8","#133eaa"]);
+    const thick = d3.scaleLinear().domain([0.8, 7.0]).range([1, 6]);
+    const size = d3.scaleSqrt().domain([0.8, 7.5]).range([6, 24]);
+
+    let simulation;
+
+    function buildGraph(map) {
+      const funds = Array.from(map.entries()).map(([name, v]) => ({ id: name, ...v }));
+      const nodes = [{ id: "WEH Team", hub: true }, ...funds];
+      const links = funds.map(f => ({ source: "WEH Team", target: f.id, weight: f.total }));
+      return { nodes, links };
+    }
+
+    function update() {
+      const map = aggregate(state);
+      const { nodes, links } = buildGraph(map);
+
+      if (simulation) simulation.stop();
+      svg.selectAll(".zoomTip").remove();
+      linkG.selectAll("line").remove();
+      nodeG.selectAll("circle").remove();
+      nodeG.selectAll("text").remove();
+
+      const link = linkG.selectAll("line")
+        .data(links, d => d.target)
+        .join("line")
+        .attr("stroke", d => color(d.weight))
+        .attr("stroke-width", d => thick(d.weight))
+        .attr("stroke-opacity", 0.9);
+
+      const node = nodeG.selectAll("circle")
+        .data(nodes, d => d.id)
+        .join("circle")
+        .attr("r", d => d.hub ? 28 : size(d.total || 1))
+        .attr("fill", d => d.hub ? "#222" : "#fff")
+        .attr("stroke", d => d.hub ? "#222" : "#1d4ed8")
+        .attr("stroke-width", d => d.hub ? 2 : 2)
+        .call(drag(simulation));
+
+      const label = nodeG.selectAll("text")
+        .data(nodes, d => d.id)
+        .join("text")
+        .text(d => d.id)
+        .attr("font-size", d => d.hub ? 14 : 11)
+        .attr("dx", 12)
+        .attr("dy", "0.32em");
+
+      node.on("mousemove", (event, d) => {
+        if (d.hub) { tip.style("display","none"); return; }
+        const s = map.get(d.id);
+        tip.style("display","block")
+          .style("left", (event.pageX + 12) + "px")
+          .style("top", (event.pageY + 12) + "px")
+          .html(`<b>${d.id}</b><br/>Stage: ${s?.stage || "-"}<br/>Total score: ${s?.total?.toFixed(1) || "-"}<br/>Strongest: ${s?.strongest?.title || "-"} (${s?.strongest?.strength || "-"})`);
+      }).on("mouseleave", () => tip.style("display","none"));
+
+      simulation = d3.forceSimulation(nodes)
+        .force("link", d3.forceLink(links).id(d => d.id).distance(d => 40 + 6*Math.sqrt((map.get(d.target.id)?.total)||1)))
+        .force("charge", d3.forceManyBody().strength(-180))
+        .force("center", d3.forceCenter(width/2, height/2))
+        .force("collide", d3.forceCollide().radius(d => d.hub ? 36 : size(d.total||1)+6))
+        .on("tick", () => {
+          link
+            .attr("x1", d => d.source.x)
+            .attr("y1", d => d.source.y)
+            .attr("x2", d => d.target.x)
+            .attr("y2", d => d.target.y);
+          node.attr("cx", d => d.x).attr("cy", d => d.y);
+          label.attr("x", d => d.x).attr("y", d => d.y);
+        });
+
+      // Pin WEH Team near center
+      const hub = nodes.find(n => n.hub);
+      hub.fx = width/2; hub.fy = height/2;
+    }
+
+    function drag(sim) {
+      function started(event, d) {
+        if (!event.active) sim.alphaTarget(0.2).restart();
+        d.fx = d.x; d.fy = d.y;
+      }
+      function dragged(event, d) {
+        d.fx = event.x; d.fy = event.y;
+      }
+      function ended(event, d) {
+        if (!event.active) sim.alphaTarget(0);
+      }
+      return d3.drag().on("start", started).on("drag", dragged).on("end", ended);
+    }
+
+    // Initialize
+    update();
+    // Handle checkbox clicks (event is bound on label, so proxy to input)
+    document.querySelectorAll('#stages input').forEach(inp => {
+      inp.addEventListener('change', e => {
+        const st = e.target.getAttribute('data-stage');
+        if (e.target.checked) state.add(st); else state.delete(st);
+        update();
+      });
+    });
+    // Resize handling
+    window.addEventListener('resize', () => location.reload());
+  </script>
+</body>
+</html>
